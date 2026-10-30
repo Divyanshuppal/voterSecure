@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Election Results | VoteSecure{% endblock %}
+{% block content %}
+<section class="panel">
+    <span class="eyebrow">PUBLIC VERIFICATION</span>
+    <h1>Election Results</h1>
+    {% if election_open %}
+      <div class="status warning">Election is open. These are interim totals.</div>
+    {% else %}
+      <div class="status success">Election is closed. Final results are published.</div>
+    {% endif %}
+    <p class="muted">Total ballots recorded: <strong>{{ total }}</strong></p>
+    {% for row in rows %}
+      <div class="result-row">
+        <div class="result-heading"><strong>{{ row.name }}</strong><strong>{{ row.vote_count }}</strong></div>
+        <div class="bar"><span style="width: {{ (row.vote_count / total * 100) if total else 0 }}%"></span></div>
+      </div>
+    {% else %}
+      <p>No candidates have been added yet.</p>
+    {% endfor %}
+    <p class="small muted">Results are calculated directly from anonymous ballot records.</p>
+</section>
+{% endblock %}

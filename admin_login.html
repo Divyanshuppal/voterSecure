@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Admin Login | VoteSecure{% endblock %}
+{% block content %}
+<section class="panel narrow">
+    <h1>Admin Login</h1>
+    <p class="muted">Demo election management.</p>
+    <form method="post">
+        <label>Admin password</label>
+        <input type="password" name="password" required>
+        <button class="button full" type="submit">Login as admin</button>
+    </form>
+    <div class="demo-box">Demo admin password: <strong>admin123</strong></div>
+</section>
+{% endblock %}

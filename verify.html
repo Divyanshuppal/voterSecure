@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Verify Receipt | VoteSecure{% endblock %}
+{% block content %}
+<section class="panel narrow">
+    <h1>Verify Vote Receipt</h1>
+    <p class="muted">Enter the receipt code you received after voting.</p>
+    <form method="post">
+        <label>Receipt code</label>
+        <input name="receipt_token" placeholder="Paste your receipt code" required>
+        <button class="button full" type="submit">Verify receipt</button>
+    </form>
+    {% if result %}
+      <div class="status {{ 'success' if result.valid else 'warning' }}">
+        <strong>{{ "Receipt verified" if result.valid else "Receipt not verified" }}</strong><br>
+        {{ result.message }}
+        {% if result.created_at %}<p class="small">Recorded at: {{ result.created_at }}</p>{% endif %}
+      </div>
+    {% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Admin Dashboard | VoteSecure{% endblock %}
+{% block content %}
+<section class="panel">
+    <div class="split">
+      <div><span class="eyebrow">ADMIN PANEL</span><h1>Election Management</h1></div>
+      <a class="button secondary" href="{{ url_for('admin_logout') }}">Admin logout</a>
+    </div>
+    <div class="stats">
+      <div class="stat"><strong>{{ total_votes }}</strong><span>Ballots recorded</span></div>
+      <div class="stat"><strong>{{ students|length }}</strong><span>Registered students</span></div>
+      <div class="stat"><strong>{{ candidates|length }}</strong><span>Candidates</span></div>
+    </div>
+    <h2>Election status</h2>
+    <p>Current status: <strong>{{ "OPEN" if election_open else "CLOSED" }}</strong></p>
+    <form method="post" class="inline-form">
+      <input type="hidden" name="action" value="toggle_election">
+      <input type="hidden" name="election_open" value="{{ '0' if election_open else '1' }}">
+      <button class="button {{ 'danger-button' if election_open else '' }}" type="submit">
+        {{ "Close election" if election_open else "Open election" }}
+      </button>
+    </form>
+
+    <h2>Add candidate</h2>
+    <form method="post" class="admin-form">
+      <input type="hidden" name="action" value="add_candidate">
+      <label>Candidate name</label>
+      <input name="name" required placeholder="Candidate D">
+      <label>Description</label>
+      <input name="description" placeholder="Candidate's priorities">
+      <button class="button" type="submit">Add candidate</button>
+    </form>
+
+    <h2>Audit trail integrity</h2>
+    <div class="status {{ 'success' if chain_ok else 'warning' }}">
+      <strong>{{ "Audit chain valid" if chain_ok else "Audit chain problem" }}</strong><br>{{ chain_message }}
+    </div>
+    <p><a href="{{ url_for('api_audit_verify') }}">Open audit verification API</a> · <a href="{{ url_for('api_results') }}">Open results API</a></p>
+
+    <h2>Registered students</h2>
+    <div class="table-wrap"><table>
+      <tr><th>College ID</th><th>Name</th><th>Voting status</th></tr>
+      {% for s in students %}
+      <tr><td>{{ s.student_id }}</td><td>{{ s.name }}</td><td>{{ "Voted" if s.has_voted else "Not voted" }}</td></tr>
+      {% endfor %}
+    </table></div>
+
+    <h2>Candidates</h2>
+    <ul>{% for c in candidates %}<li><strong>{{ c.name }}</strong> — {{ c.description }}</li>{% endfor %}</ul>
+
+    <h2>Recent audit events</h2>
+    <div class="table-wrap"><table>
+      <tr><th>#</th><th>Event</th><th>Details</th><th>Time</th><th>Hash (short)</th></tr>
+      {% for log in logs %}
+      <tr><td>{{ log.log_id }}</td><td>{{ log.event }}</td><td>{{ log.details }}</td><td>{{ log.created_at }}</td><td>{{ log.entry_hash[:12] }}…</td></tr>
+      {% endfor %}
+    </table></div>
+</section>
+{% endblock %}

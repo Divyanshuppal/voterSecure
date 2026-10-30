@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Cast Vote | VoteSecure{% endblock %}
+{% block content %}
+<section class="panel">
+    <span class="eyebrow">BALLOT</span>
+    <h1>Select your candidate</h1>
+    <p class="muted">Choose one candidate. Your identity is not stored with your ballot.</p>
+    <form method="post" onsubmit="return confirm('Submit your vote? This action cannot be undone.');">
+        <div class="candidate-list">
+        {% for candidate in candidates %}
+            <label class="candidate">
+                <input type="radio" name="candidate_id" value="{{ candidate.candidate_id }}" required>
+                <span><strong>{{ candidate.name }}</strong><br><small>{{ candidate.description }}</small></span>
+            </label>
+        {% endfor %}
+        </div>
+        <button class="button" type="submit">Submit my vote</button>
+    </form>
+    <p class="small muted">Once submitted, your vote cannot be changed in this demo.</p>
+</section>
+{% endblock %}

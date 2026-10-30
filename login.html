@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Student Login | VoteSecure{% endblock %}
+{% block content %}
+<section class="panel narrow">
+    <div class="icon">🗳️</div>
+    <h1>Student Login</h1>
+    <p class="muted">Sign in to participate in the mock college election.</p>
+
+    <form method="post" action="{{ url_for('generate_otp') }}">
+        <label>College ID</label>
+        <input name="student_id" placeholder="Example: STU001"
+               required autocomplete="username"
+               value="{{ request.form.get('student_id', '') }}">
+        <button class="button full" type="submit">Generate OTP</button>
+    </form>
+
+    <form method="post" action="{{ url_for('login') }}">
+        <label>College ID</label>
+        <input name="student_id" placeholder="Enter the same College ID"
+               required autocomplete="username">
+        <label>One-Time Password (OTP)</label>
+        <input name="otp" placeholder="Enter 6-digit OTP" maxlength="6"
+               minlength="6" pattern="[0-9]{6}" required inputmode="numeric"
+               autocomplete="one-time-code">
+        <button class="button full" type="submit">Login securely</button>
+    </form>
+
+    <div class="demo-box">
+        <strong>Demo credentials</strong><br>
+        College ID: STU001<br>
+        First click <strong>Generate OTP</strong>, then check the terminal.
+    </div>
+    <p class="small muted">The generated OTP is printed in the Flask terminal and expires after 5 minutes. No SMS or email is sent.</p>
+</section>
+{% endblock %}

@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Vote Receipt | VoteSecure{% endblock %}
+{% block content %}
+<section class="panel narrow center">
+    <div class="icon">✓</div>
+    <h1>Your vote was recorded</h1>
+    <p class="muted">Save this receipt code. It verifies that a ballot was recorded, but does not reveal your candidate selection.</p>
+    <div class="receipt-code">{{ token }}</div>
+    <button class="button full" onclick="navigator.clipboard.writeText('{{ token }}')">Copy receipt code</button>
+    <a class="button secondary full" href="{{ url_for('verify') }}">Verify receipt</a>
+    <p class="small muted">This code is shown only once. Keep it private.</p>
+</section>
+{% endblock %}

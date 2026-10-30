@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Dashboard | VoteSecure{% endblock %}
+{% block content %}
+<section class="panel">
+    <span class="eyebrow">STUDENT DASHBOARD</span>
+    <h1>Welcome, {{ name }}</h1>
+    <p class="muted">College ID: {{ student_id }}</p>
+    {% if has_voted %}
+        <div class="status success"><strong>Vote submitted</strong><br>Your account is marked as having voted. You cannot vote again.</div>
+    {% elif election_open %}
+        <div class="status"><strong>You are eligible to vote.</strong><br>Your vote is private and can only be submitted once.</div>
+        <a class="button" href="{{ url_for('vote') }}">View candidates and vote</a>
+    {% else %}
+        <div class="status warning"><strong>Election closed</strong><br>Voting is not currently accepting ballots.</div>
+    {% endif %}
+    <div class="actions">
+        <a class="button secondary" href="{{ url_for('verify') }}">Verify a receipt</a>
+        <a class="button secondary" href="{{ url_for('results') }}">View results</a>
+    </div>
+</section>
+{% endblock %}
