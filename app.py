@@ -1,5 +1,6 @@
 import os
 import secrets
+import hashlib
 import time
 from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, session, flash, abort
@@ -15,8 +16,14 @@ app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE="Lax",
 )
+otp_storage = {}
 
-OTP_VALIDITY_SECONDS = 300  # 5 minutes
+OTP_VALIDITY_SECONDS = 300
+
+def create_otp():
+    return str(secrets.randbelow(900000) + 100000)
+
+DEMO_OTP = "123456"
 ADMIN_PASSWORD = os.environ.get("VOTESECURE_ADMIN_PASSWORD", "admin123")
 
 
@@ -44,6 +51,57 @@ def admin_required(view):
         return view(*args, **kwargs)
     return wrapped
 
+@app.route("/generate-otp", methods=["POST"])
+def generate_otp_route():
+
+    student_id = request.form.get(
+        "student_id", ""
+    ).strip().upper()
+
+    if not student_id:
+        flash("Please enter College ID.", "warning")
+        return redirect(url_for("login"))
+
+    # Check student in database
+    conn = get_connection()
+
+    student = conn.execute(
+        "SELECT student_id FROM students WHERE student_id = ?",
+        (student_id,)
+    ).fetchone()
+
+    conn.close()
+
+    if student is None:
+        flash("College ID is not registered.", "danger")
+        return redirect(url_for("login"))
+
+    # Generate random OTP
+    otp = create_otp()
+
+    # Store hashed OTP and expiry time
+    otp_storage[student_id] = {
+        "otp": hashlib.sha256(otp.encode()).hexdigest(),
+        "expiry": time.time() + OTP_VALIDITY_SECONDS
+    }
+
+    # Display OTP in terminal
+    print("\n" + "=" * 45)
+    print("       VOTESECURE OTP GENERATED")
+    print("=" * 45)
+    print(f"College ID : {student_id}")
+    print(f"OTP        : {otp}")
+    print("Valid for  : 5 Minutes")
+    print("=" * 45 + "\n", flush=True)
+
+    add_audit_log(
+        "OTP_GENERATED",
+        {"student_id": student_id}
+    )
+
+    flash("OTP generated! Check your terminal.", "success")
+
+    return redirect(url_for("login"))
 
 @app.route("/")
 def home():
@@ -52,92 +110,76 @@ def home():
     return redirect(url_for("login"))
 
 
-@app.route("/generate-otp", methods=["POST"])
-def generate_otp():
-    """Generate a one-time password and display it in the server terminal."""
-    student_id = request.form.get("student_id", "").strip().upper()
-
-    if not student_id:
-        flash("Enter your College ID first.", "warning")
-        return redirect(url_for("login"))
-
-    conn = get_connection()
-    student = conn.execute(
-        "SELECT student_id FROM students WHERE student_id = ?",
-        (student_id,)
-    ).fetchone()
-    conn.close()
-
-    if student is None:
-        add_audit_log("OTP_REQUEST_FAILED", {
-            "student_id": student_id, "reason": "unknown_id"
-        })
-        flash("This College ID is not registered.", "danger")
-        return redirect(url_for("login"))
-
-    otp = str(secrets.randbelow(900000) + 100000)
-    session["pending_student_id"] = student_id
-    session["login_otp"] = otp
-    session["otp_created_at"] = time.time()
-
-    # Demo delivery: the OTP is printed in the terminal running Flask.
-    print("\\n" + "=" * 48)
-    print(" VoteSecure - OTP GENERATED")
-    print(f" College ID : {student_id}")
-    print(f" OTP        : {otp}")
-    print(" Valid for  : 5 minutes")
-    print("=" * 48 + "\\n", flush=True)
-
-    add_audit_log("OTP_GENERATED", {"student_id": student_id})
-    flash("OTP generated. Check the terminal where you started VoteSecure.", "success")
-    return redirect(url_for("login"))
-
-
 @app.route("/login", methods=["GET", "POST"])
 def login():
+
     if request.method == "POST":
-        student_id = request.form.get("student_id", "").strip().upper()
+
+        student_id = request.form.get(
+            "student_id", ""
+        ).strip().upper()
+
         otp = request.form.get("otp", "").strip()
 
         if not student_id or not otp:
-            flash("Enter both College ID and OTP.", "danger")
+            flash("Enter College ID and OTP.", "danger")
             return render_template("login.html")
 
-        pending_id = session.get("pending_student_id")
-        saved_otp = session.get("login_otp")
-        created_at = session.get("otp_created_at", 0)
-
-        if pending_id != student_id or not saved_otp:
-            flash("Please generate an OTP for this College ID first.", "warning")
-            return render_template("login.html")
-
-        if time.time() - created_at > OTP_VALIDITY_SECONDS:
-            session.pop("login_otp", None)
-            session.pop("otp_created_at", None)
-            flash("OTP expired. Generate a new OTP.", "warning")
-            return render_template("login.html")
-
-        if not secrets.compare_digest(otp, saved_otp):
-            add_audit_log("LOGIN_FAILED", {"student_id": student_id, "reason": "wrong_otp"})
-            flash("Incorrect OTP. Please try again.", "danger")
-            return render_template("login.html")
-
+        # Check student
         conn = get_connection()
+
         student = conn.execute(
             "SELECT student_id, name FROM students WHERE student_id = ?",
             (student_id,)
         ).fetchone()
+
         conn.close()
 
         if student is None:
-            flash("This College ID is not registered.", "danger")
+            flash("Student ID not registered.", "danger")
             return render_template("login.html")
 
-        # OTP is one-time use: remove it after successful verification.
+        # Get stored OTP
+        stored_data = otp_storage.get(student_id)
+
+        if stored_data is None:
+            flash("Please generate OTP first.", "warning")
+            return render_template("login.html")
+
+        # Check expiry
+        if time.time() > stored_data["expiry"]:
+            otp_storage.pop(student_id, None)
+            flash("OTP expired. Generate a new OTP.", "warning")
+            return render_template("login.html")
+
+        # Hash entered OTP
+        entered_hash = hashlib.sha256(
+            otp.encode()
+        ).hexdigest()
+
+        # Verify OTP
+        if not secrets.compare_digest(
+            entered_hash, stored_data["otp"]
+        ):
+            add_audit_log(
+                "LOGIN_FAILED",
+                {"student_id": student_id, "reason": "wrong_otp"}
+            )
+            flash("Incorrect OTP. Try again.", "danger")
+            return render_template("login.html")
+
+        # OTP successfully verified - remove it
+        otp_storage.pop(student_id, None)
+
         session.clear()
         session["student_id"] = student["student_id"]
         session["student_name"] = student["name"]
-        add_audit_log("LOGIN_SUCCESS", {"student_id": student_id})
+
+        add_audit_log(
+            "LOGIN_SUCCESS",
+            {"student_id": student_id}
+        )
+
         return redirect(url_for("dashboard"))
 
     return render_template("login.html")
@@ -327,7 +369,7 @@ def admin_dashboard():
         students=students,
         election_open=bool(int(election["value"])) if election else True,
         logs=logs,
-        total_votes=total_votes,
+        total_votes= total_votes,
         chain_ok=chain_ok,
         chain_message=chain_message
     )
@@ -367,6 +409,7 @@ def api_audit_verify():
     return {"valid": ok, "message": message}
 
 
+
 with app.app_context():
     initialize_database()
     seed_demo_data()
@@ -374,3 +417,4 @@ with app.app_context():
 
 if __name__ == "__main__":
     app.run(debug=True)
+
